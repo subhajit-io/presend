@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/status", "destination": "/api/status.py" },
+    { "source": "/api/redact", "destination": "/api/redact.py" },
+    { "source": "/(.*)", "destination": "/$1" }
+  ]
+}

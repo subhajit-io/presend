@@ -1,0 +1,1 @@
+# Presend uses Python standard library for zero-dependency deployment
