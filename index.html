@@ -1,0 +1,1531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'self' http://127.0.0.1:* http://localhost:*; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>PII Redactor - Presend</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background: #f8fafc;
+      color: #0f172a;
+      padding: 1.5rem 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1040px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    header { text-align: center; }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 0.25rem;
+    }
+
+    p.subtitle {
+      color: #64748b;
+      font-size: 0.92rem;
+    }
+
+    .backend-status-wrap {
+      margin-top: 0.4rem;
+      display: flex;
+      justify-content: center;
+    }
+
+    .backend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.38rem;
+      padding: 0.16rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      background: #f0fdf4;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+      transition: all 0.2s ease;
+    }
+
+    .backend-chip.offline {
+      background: #fef2f2;
+      color: #991b1b;
+      border-color: #fecaca;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+    }
+
+    .backend-chip.offline .status-dot {
+      background: #ef4444;
+    }
+
+    /* Stats bar */
+    .stats-bar {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      min-height: 1.8rem;
+    }
+
+    .stat-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.18rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      border: 1px solid;
+    }
+
+    .chip-name    { background: #dcfce7; color: #15803d; border-color: #86efac; }
+    .chip-email   { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+    .chip-secret  { background: #fce7f3; color: #9d174d; border-color: #f472b6; }
+    .chip-phone   { background: #fef9c3; color: #854d0e; border-color: #fde047; }
+    .chip-address { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    .chip-id      { background: #ede9fe; color: #5b21b6; border-color: #c4b5fd; }
+    .chip-digit   { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+    .chip-custom  { background: #e0e7ff; color: #3730a3; border-color: #a5b4fc; }
+
+    /* Compact 3-column layout without expanding box sizes */
+    .editor-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 280px;
+      gap: 0.85rem;
+      align-items: stretch;
+    }
+
+    @media (max-width: 960px) {
+      .editor-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .tracking-panel {
+        grid-column: span 2;
+        height: 320px !important;
+        min-height: 320px !important;
+        max-height: 320px !important;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .editor-grid {
+        grid-template-columns: 1fr;
+      }
+      .tracking-panel {
+        grid-column: span 1;
+      }
+    }
+
+    /* Fixed compact panel heights */
+    .panel {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      height: 380px;
+      min-height: 380px;
+      max-height: 380px;
+    }
+
+    .panel-header {
+      padding: 0.65rem 0.9rem;
+      background: #f1f5f9;
+      border-bottom: 1px solid #cbd5e1;
+      font-weight: 600;
+      font-size: 0.86rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .hint {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: #64748b;
+    }
+
+    /* Invisible Container Scrolls - Smooth, clean scrolling without bulky scrollbar bars */
+    .invisible-scroll,
+    textarea,
+    .interactive-display,
+    .tracker-list,
+    .panel {
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* IE and Edge */
+    }
+
+    .invisible-scroll::-webkit-scrollbar,
+    textarea::-webkit-scrollbar,
+    .interactive-display::-webkit-scrollbar,
+    .tracker-list::-webkit-scrollbar,
+    .panel::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+      background: transparent !important;
+    }
+
+    textarea {
+      width: 100%;
+      flex: 1;
+      height: 100%;
+      min-height: 0;
+      border: none;
+      padding: 0.85rem 1rem;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      resize: none;
+      outline: none;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      background: transparent;
+      overflow-y: auto;
+    }
+
+    textarea:focus { background: #fafafa; }
+
+    .interactive-display {
+      flex: 1;
+      height: 100%;
+      min-height: 0;
+      padding: 0.85rem 1rem;
+      font-size: 0.95rem;
+      line-height: 1.8;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-y: auto;
+      background: #ffffff;
+    }
+
+    .word-token {
+      display: inline;
+      padding: 0.1rem 0.2rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+
+    .word-token:hover { background-color: #e2e8f0; }
+
+    .masked-badge {
+      display: inline-block;
+      padding: 0.1rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      user-select: none;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+      transition: transform 0.1s ease, filter 0.15s ease, box-shadow 0.2s ease;
+    }
+
+    .masked-badge:hover {
+      filter: brightness(0.92);
+      transform: translateY(-1px);
+    }
+
+    /* Active Highlight in Interactive Display */
+    .token-active-highlight {
+      outline: 2px solid #2563eb !important;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.4) !important;
+      border-radius: 4px;
+      animation: pulseHighlight 1.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes pulseHighlight {
+      from { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3); }
+      to   { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.6); }
+    }
+
+    /* Name: bold green inline */
+    .badge-name {
+      background: transparent;
+      color: #16a34a;
+      font-weight: 700;
+      border: 1px solid transparent;
+      box-shadow: none;
+      padding: 0 0.1rem;
+    }
+    .badge-name:hover { text-decoration: underline; }
+
+    .badge-address { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+    .badge-user    { background: #e0e7ff; color: #3730a3; border: 1px solid #818cf8; }
+    .badge-secret  { background: #fce7f3; color: #9d174d; border: 1px solid #f472b6; }
+    .badge-email   { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+    .badge-phone   { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+    .badge-id      { background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd; }
+    .badge-manual  { background: #e2e8f0; color: #1e293b; border: 1px solid #94a3b8; }
+    .badge-digit   { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+
+    /* Conversion Tracker Styles */
+    .tracker-header-actions {
+      display: flex;
+      gap: 0.3rem;
+    }
+
+    .tracker-count {
+      display: inline-block;
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.1rem 0.4rem;
+      border-radius: 999px;
+      margin-left: 0.3rem;
+    }
+
+    .tracker-search-box {
+      padding: 0.4rem 0.6rem;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      flex-shrink: 0;
+    }
+
+    .tracker-search-box input {
+      width: 100%;
+      padding: 0.35rem 0.55rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      font-size: 0.78rem;
+      outline: none;
+      background: #ffffff;
+      transition: border-color 0.15s ease;
+    }
+
+    .tracker-search-box input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+    }
+
+    .tracker-list {
+      flex: 1;
+      height: 100%;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      background: #ffffff;
+    }
+
+    .tracker-empty {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 0.8rem;
+      padding: 2rem 0.8rem;
+      line-height: 1.4;
+    }
+
+    .tracker-item {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 0.45rem 0.55rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      transition: all 0.15s ease;
+    }
+
+    .tracker-item:hover {
+      border-color: #94a3b8;
+      background: #ffffff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+    }
+
+    .tracker-item.active-row {
+      border-color: #2563eb;
+      background: #eff6ff;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+    }
+
+    .tracker-item-main {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .tracker-item-text {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.35rem;
+      font-size: 0.82rem;
+    }
+
+    .tracker-word-group {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .original-word {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 700;
+      color: #0f172a;
+      max-width: 105px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .original-word:hover {
+      text-decoration: underline;
+      color: #2563eb;
+    }
+
+    .arrow-sep {
+      color: #94a3b8;
+      font-weight: 700;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    /* Label Switcher Select */
+    .label-switcher-select {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.15rem 0.35rem;
+      border-radius: 4px;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.15s ease;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      max-width: 115px;
+      text-overflow: ellipsis;
+    }
+
+    .label-switcher-select:hover {
+      border-color: #94a3b8;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    .label-switcher-select:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+    }
+
+    /* Quick Pills Row */
+    .quick-pills-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.2rem;
+      align-items: center;
+    }
+
+    .pills-label {
+      font-size: 0.65rem;
+      color: #94a3b8;
+      font-weight: 600;
+      margin-right: 0.1rem;
+    }
+
+    .pill-btn {
+      padding: 0.08rem 0.35rem;
+      font-size: 0.68rem;
+      font-weight: 700;
+      border-radius: 3px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      background: #ffffff;
+      transition: all 0.1s ease;
+    }
+
+    .pill-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      filter: brightness(0.95);
+    }
+
+    .tracker-item-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.68rem;
+      color: #64748b;
+    }
+
+    .tracker-chip {
+      font-size: 0.66rem;
+      font-weight: 600;
+      padding: 0.06rem 0.38rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+
+    .tracker-pos {
+      font-size: 0.66rem;
+      color: #94a3b8;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .tracker-item-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.25rem;
+      padding-top: 0.25rem;
+      border-top: 1px dashed #e2e8f0;
+    }
+
+    .small-btn, .icon-btn {
+      padding: 0.18rem 0.45rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      border-radius: 4px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      cursor: pointer;
+      color: #334155;
+      transition: all 0.15s ease;
+    }
+
+    .icon-btn:hover, .small-btn:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+      color: #0f172a;
+    }
+
+    .icon-btn.danger {
+      color: #b91c1c;
+      border-color: #fecaca;
+      background: #fef2f2;
+    }
+
+    .icon-btn.danger:hover {
+      background: #fee2e2;
+      border-color: #f87171;
+      color: #991b1b;
+    }
+
+    .inline-edit-box {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      width: 100%;
+    }
+
+    .inline-edit-input {
+      flex: 1;
+      min-width: 0;
+      padding: 0.18rem 0.35rem;
+      border: 1px solid #2563eb;
+      border-radius: 4px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      outline: none;
+      background: #ffffff;
+    }
+
+    .small-save-btn {
+      padding: 0.18rem 0.45rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      border-radius: 4px;
+      border: 1px solid #2563eb;
+      background: #2563eb;
+      color: #ffffff;
+      cursor: pointer;
+    }
+    .small-save-btn:hover { background: #1d4ed8; }
+
+    .small-cancel-btn {
+      padding: 0.18rem 0.45rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      border-radius: 4px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #475569;
+      cursor: pointer;
+    }
+    .small-cancel-btn:hover { background: #f1f5f9; }
+
+    /* Actions Bar */
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 0.6rem 1.2rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #0f172a;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    button:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+
+    button.primary {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #2563eb;
+    }
+
+    button.primary:hover { background: #1d4ed8; }
+
+    .view-toggle-btn {
+      font-size: 0.82rem;
+      padding: 0.3rem 0.65rem;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0f172a;
+      color: #ffffff;
+      padding: 0.6rem 1.15rem;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+      z-index: 1000;
+      white-space: nowrap;
+    }
+
+    .toast.show { opacity: 1; }
+
+    .char-count {
+      font-size: 0.72rem;
+      color: #94a3b8;
+      font-weight: 400;
+    }
+
+    .risk-badge {
+      display: inline-block;
+      padding: 0.15rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 700;
+    }
+    .risk-low      { background: #dcfce7; color: #15803d; }
+    .risk-medium   { background: #fef9c3; color: #854d0e; }
+    .risk-high     { background: #fed7aa; color: #9a3412; }
+    .risk-critical { background: #fecaca; color: #991b1b; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>PII Redactor</h1>
+      <p class="subtitle">Ask AI anything—without exposing your identity.</p>
+      <div class="backend-status-wrap">
+        <span class="backend-chip" id="backendChip" title="Server Status">
+          <span class="status-dot"></span>
+          <span id="backendStatus">Server: Checking...</span>
+        </span>
+      </div>
+    </header>
+
+    <!-- Detection stats bar -->
+    <div class="stats-bar" id="statsBar"></div>
+
+    <div class="editor-grid">
+      <!-- Input Panel -->
+      <div class="panel input-panel">
+        <div class="panel-header">
+          <span>Input Text</span>
+          <span class="hint char-count" id="charCount">0 characters</span>
+        </div>
+        <textarea id="inputText" placeholder="Paste your text here..." spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+      </div>
+
+      <!-- Redacted Output Panel -->
+      <div class="panel output-panel">
+        <div class="panel-header">
+          <span>Redacted Output <span id="riskLabel"></span></span>
+          <div>
+            <button class="view-toggle-btn" id="viewToggleBtn" onclick="togglePlainView()">Plain Text View</button>
+          </div>
+        </div>
+
+        <!-- Interactive display -->
+        <div class="interactive-display" id="interactiveDisplay"></div>
+
+        <!-- Plain text view (hidden by default, used only for copy) -->
+        <textarea id="plainTextOutput" readonly style="display:none;" aria-hidden="true"></textarea>
+      </div>
+
+      <!-- Conversion Tracker Panel (Right Side) -->
+      <div class="panel tracking-panel">
+        <div class="panel-header">
+          <span>Conversions <span class="tracker-count" id="trackerCount">0</span></span>
+          <div class="tracker-header-actions">
+            <button class="small-btn" onclick="unmaskAll()" title="Unmask all active conversions">Unmask All</button>
+            <button class="small-btn" onclick="resetOverrides()" title="Reset all custom rules">Reset</button>
+          </div>
+        </div>
+
+        <div class="tracker-search-box">
+          <input type="text" id="trackerSearch" placeholder="Search conversions..." oninput="renderTracker()">
+        </div>
+
+        <div class="tracker-list" id="trackerList"></div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+      <div class="button-group">
+        <button class="primary" id="redactBtn" type="button">Redact</button>
+        <button id="clearBtn" type="button">Clear</button>
+      </div>
+      <div class="button-group">
+        <button id="copyBtn" type="button">Copy Redacted Text</button>
+        <button id="copyLogBtn" type="button">Copy Audit Log</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+  // =============================================================================
+  // PRESEND FRONTEND UI
+  // Pure presentation layer. All tokenization, regex matching, NLP classifications,
+  // and redaction logic run 100% under the hood in Python (presend.py).
+  // =============================================================================
+
+  // Master definitions of switchable labels for UI presentation
+  const LABEL_DEFINITIONS = [
+    { tag: '[Name]',     label: '[Name]',     badge: 'badge-name',    category: 'Name' },
+    { tag: '[ADDRESS]',  label: '[ADDRESS]',  badge: 'badge-address', category: 'Address' },
+    { tag: '[PHONE]',    label: '[PHONE]',    badge: 'badge-phone',   category: 'Phone' },
+    { tag: '[EMAIL]',    label: '[EMAIL]',    badge: 'badge-email',   category: 'Email' },
+    { tag: '[USERNAME]', label: '[USERNAME]', badge: 'badge-user',    category: 'Username' },
+    { tag: '[PASSWORD]', label: '[PASSWORD]', badge: 'badge-secret',  category: 'Password' },
+    { tag: '[API_KEY]',  label: '[API_KEY]',  badge: 'badge-secret',  category: 'API Key' },
+    { tag: '[AADHAAR]',  label: '[AADHAAR]',  badge: 'badge-id',      category: 'Aadhaar' },
+    { tag: '[PAN]',      label: '[PAN]',      badge: 'badge-id',      category: 'PAN' },
+    { tag: '[CARD]',     label: '[CARD]',     badge: 'badge-secret',  category: 'Card' },
+    { tag: '[REDACTED]', label: '[REDACTED]', badge: 'badge-manual',  category: 'Custom' },
+  ];
+
+  const LABEL_MAP = {};
+  LABEL_DEFINITIONS.forEach(def => { LABEL_MAP[def.tag] = def; });
+
+  // ---- STATE -------------------------------------------------------------------
+  const manualOverrides     = new Map(); // tokenId -> boolean
+  const customLabelOverrides = new Map(); // tokenId -> { mask, badgeClass, category }
+
+  let editingTokenId = null;
+  let isPlainView = false;
+  let currentTokens = [];
+  let debounceTimer = null;
+  let lastStats = {};
+
+  const inputEl            = document.getElementById('inputText');
+  const interactiveDisplay = document.getElementById('interactiveDisplay');
+  const plainTextOutput    = document.getElementById('plainTextOutput');
+  const viewToggleBtn      = document.getElementById('viewToggleBtn');
+  const toastEl            = document.getElementById('toast');
+  const statsBar           = document.getElementById('statsBar');
+  const charCountEl        = document.getElementById('charCount');
+  const riskLabel          = document.getElementById('riskLabel');
+  const trackerList        = document.getElementById('trackerList');
+  const trackerCount       = document.getElementById('trackerCount');
+  const trackerSearch      = document.getElementById('trackerSearch');
+
+  // ---- RENDER OUTPUT -----------------------------------------------------------
+  function renderOutput(precomputedPlainString) {
+    while (interactiveDisplay.firstChild) {
+      interactiveDisplay.removeChild(interactiveDisplay.firstChild);
+    }
+    let plainString = '';
+
+    for (const t of currentTokens) {
+      if (!t.isWord && !t.isPreMasked) {
+        interactiveDisplay.appendChild(document.createTextNode(t.text));
+        plainString += t.text;
+        continue;
+      }
+
+      if (t.masked) {
+        const badge = document.createElement('span');
+        badge.className = 'masked-badge ' + (t.badgeClass || 'badge-manual');
+        badge.textContent = t.mask;
+        badge.setAttribute('title', 'Original: ' + t.originalText + ' (Click to toggle / select)');
+        badge.setAttribute('data-tid', String(t.id));
+        badge.addEventListener('click', onBadgeClick);
+        interactiveDisplay.appendChild(badge);
+        plainString += t.mask;
+      } else {
+        const span = document.createElement('span');
+        span.className = 'word-token';
+        span.textContent = t.text;
+        span.setAttribute('title', 'Click to mask: ' + t.text);
+        span.setAttribute('data-tid', String(t.id));
+        span.addEventListener('click', onBadgeClick);
+        interactiveDisplay.appendChild(span);
+        plainString += t.text;
+      }
+    }
+
+    plainTextOutput.value = precomputedPlainString !== undefined ? precomputedPlainString : plainString;
+  }
+
+  function onBadgeClick(e) {
+    const tid = parseInt(e.currentTarget.getAttribute('data-tid'), 10);
+    const token = currentTokens.find(t => t.id === tid);
+    if (!token) return;
+
+    // Highlight in input textarea and tracker row
+    highlightToken(tid);
+
+    // Toggle mask state and dispatch to Python engine
+    const newState = !token.masked;
+    manualOverrides.set(tid, newState);
+    showToast(newState ? 'Masked' : 'Unmasked');
+    doRedact(false);
+  }
+
+  // ---- BIDIRECTIONAL FIND & HIGHLIGHT -------------------------------------------
+  function highlightToken(tokenId) {
+    const token = currentTokens.find(t => t.id === tokenId);
+    if (!token) return;
+
+    // 1. Highlight in raw Input Textarea
+    inputEl.focus();
+    inputEl.setSelectionRange(token.start, token.end);
+
+    // 2. Highlight in Redacted Output Display
+    const prevHighlighted = interactiveDisplay.querySelectorAll('.token-active-highlight');
+    prevHighlighted.forEach(el => el.classList.remove('token-active-highlight'));
+
+    const badge = interactiveDisplay.querySelector(`[data-tid="${tokenId}"]`);
+    if (badge) {
+      badge.classList.add('token-active-highlight');
+      badge.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // 3. Highlight in Conversion Tracker
+    const prevActiveRows = trackerList.querySelectorAll('.active-row');
+    prevActiveRows.forEach(el => el.classList.remove('active-row'));
+
+    const row = trackerList.querySelector(`[data-tid="${tokenId}"]`);
+    if (row) {
+      row.classList.add('active-row');
+      row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    showToast(`Found "${token.originalText}" (${token.start}-${token.end})`);
+  }
+
+  // ---- CONVERSION TRACKER RENDER -----------------------------------------------
+  function renderTracker() {
+    if (!trackerList) return;
+
+    while (trackerList.firstChild) {
+      trackerList.removeChild(trackerList.firstChild);
+    }
+
+    const searchQuery = (trackerSearch?.value || '').toLowerCase().trim();
+
+    const trackedItems = currentTokens.filter(t => {
+      if (t.masked) return true;
+      if (t.originalText !== t.text) return true;
+      return false;
+    });
+
+    trackerCount.textContent = String(trackedItems.length);
+
+    const filtered = trackedItems.filter(t => {
+      if (!searchQuery) return true;
+      const maskVal = t.masked ? t.mask : t.text;
+      return t.originalText.toLowerCase().includes(searchQuery) ||
+             maskVal.toLowerCase().includes(searchQuery) ||
+             (t.category && t.category.toLowerCase().includes(searchQuery));
+    });
+
+    if (filtered.length === 0) {
+      const emptyDiv = document.createElement('div');
+      emptyDiv.className = 'tracker-empty';
+      if (searchQuery) {
+        emptyDiv.textContent = `No conversions match "${searchQuery}"`;
+      } else {
+        emptyDiv.innerHTML = `No conversions.<br><span style="font-size:0.72rem; color:#94a3b8;">Type text on the left to track redactions in real time.</span>`;
+      }
+      trackerList.appendChild(emptyDiv);
+      return;
+    }
+
+    for (const item of filtered) {
+      const card = document.createElement('div');
+      card.className = 'tracker-item';
+      card.setAttribute('data-tid', String(item.id));
+
+      const isEditing = (editingTokenId === item.id);
+      const currentMask = item.masked ? item.mask : item.text;
+
+      const mainRow = document.createElement('div');
+      mainRow.className = 'tracker-item-main';
+
+      const textRow = document.createElement('div');
+      textRow.className = 'tracker-item-text';
+
+      const wordGroup = document.createElement('div');
+      wordGroup.className = 'tracker-word-group';
+
+      const origSpan = document.createElement('span');
+      origSpan.className = 'original-word';
+      origSpan.textContent = item.originalText;
+      origSpan.title = 'Original: ' + item.originalText + ' (Click to find)';
+      origSpan.addEventListener('click', () => highlightToken(item.id));
+
+      const arrowSpan = document.createElement('span');
+      arrowSpan.className = 'arrow-sep';
+      arrowSpan.textContent = '->';
+
+      wordGroup.appendChild(origSpan);
+      wordGroup.appendChild(arrowSpan);
+      textRow.appendChild(wordGroup);
+
+      if (isEditing) {
+        const editBox = document.createElement('div');
+        editBox.className = 'inline-edit-box';
+
+        const editInput = document.createElement('input');
+        editInput.type = 'text';
+        editInput.className = 'inline-edit-input';
+        editInput.id = `editInput_${item.id}`;
+        editInput.value = currentMask;
+        editInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') saveLabelEdit(item.id);
+          if (e.key === 'Escape') cancelLabelEdit();
+        });
+
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'small-save-btn';
+        saveBtn.textContent = 'OK';
+        saveBtn.addEventListener('click', () => saveLabelEdit(item.id));
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'small-cancel-btn';
+        cancelBtn.textContent = 'X';
+        cancelBtn.addEventListener('click', cancelLabelEdit);
+
+        editBox.appendChild(editInput);
+        editBox.appendChild(saveBtn);
+        editBox.appendChild(cancelBtn);
+        textRow.appendChild(editBox);
+      } else {
+        // Label Switcher Dropdown
+        const select = document.createElement('select');
+        select.className = 'label-switcher-select ' + (item.badgeClass || 'badge-manual');
+        select.setAttribute('title', 'Switch label for ' + item.originalText);
+        select.addEventListener('change', (e) => {
+          switchTokenLabel(item.id, e.target.value);
+        });
+
+        // Add standard label options
+        let matched = false;
+        for (const def of LABEL_DEFINITIONS) {
+          const opt = document.createElement('option');
+          opt.value = def.tag;
+          opt.textContent = def.label;
+          if (def.tag === currentMask) {
+            opt.selected = true;
+            matched = true;
+          }
+          select.appendChild(opt);
+        }
+
+        // Custom label entry if not standard
+        if (!matched && currentMask) {
+          const customOpt = document.createElement('option');
+          customOpt.value = currentMask;
+          customOpt.textContent = currentMask;
+          customOpt.selected = true;
+          if (select.firstChild) {
+            select.insertBefore(customOpt, select.firstChild);
+          } else {
+            select.appendChild(customOpt);
+          }
+        }
+
+        const customOption = document.createElement('option');
+        customOption.value = '__custom__';
+        customOption.textContent = '+ Custom...';
+        select.appendChild(customOption);
+
+        textRow.appendChild(select);
+      }
+
+      mainRow.appendChild(textRow);
+
+      // Quick Switch Pills (One-click label switching)
+      if (!isEditing) {
+        const quickPills = document.createElement('div');
+        quickPills.className = 'quick-pills-row';
+
+        const pillsLabel = document.createElement('span');
+        pillsLabel.className = 'pills-label';
+        pillsLabel.textContent = 'Switch:';
+        quickPills.appendChild(pillsLabel);
+
+        const popularTags = ['[Name]', '[ADDRESS]', '[PHONE]', '[REDACTED]'];
+        for (const tag of popularTags) {
+          if (tag === currentMask) continue;
+          const pBtn = document.createElement('button');
+          pBtn.className = 'pill-btn ' + (LABEL_MAP[tag]?.badge || 'badge-manual');
+          pBtn.textContent = tag;
+          pBtn.title = 'Switch to ' + tag;
+          pBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            switchTokenLabel(item.id, tag);
+          });
+          quickPills.appendChild(pBtn);
+        }
+
+        mainRow.appendChild(quickPills);
+      }
+
+      // Meta: category chip + char position
+      const metaRow = document.createElement('div');
+      metaRow.className = 'tracker-item-meta';
+
+      const chip = document.createElement('span');
+      chip.className = 'tracker-chip ' + (item.badgeClass || 'badge-manual');
+      chip.textContent = item.category || 'PII';
+
+      const posSpan = document.createElement('span');
+      posSpan.className = 'tracker-pos';
+      posSpan.textContent = `${item.start}-${item.end}`;
+
+      metaRow.appendChild(chip);
+      metaRow.appendChild(posSpan);
+      mainRow.appendChild(metaRow);
+
+      card.appendChild(mainRow);
+
+      // Actions row (Find, Edit, Delete)
+      if (!isEditing) {
+        const actionsRow = document.createElement('div');
+        actionsRow.className = 'tracker-item-actions';
+
+        const findBtn = document.createElement('button');
+        findBtn.className = 'icon-btn';
+        findBtn.textContent = 'Find';
+        findBtn.title = 'Highlight in input and output';
+        findBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          highlightToken(item.id);
+        });
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'icon-btn';
+        editBtn.textContent = 'Edit';
+        editBtn.title = 'Type custom label';
+        editBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          startEditLabel(item.id);
+        });
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'icon-btn danger';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.title = 'Unmask this item';
+        deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          unmaskToken(item.id);
+        });
+
+        actionsRow.appendChild(findBtn);
+        actionsRow.appendChild(editBtn);
+        actionsRow.appendChild(deleteBtn);
+        card.appendChild(actionsRow);
+      }
+
+      trackerList.appendChild(card);
+    }
+  }
+
+  // ---- SWITCH BETWEEN LABELS ---------------------------------------------------
+  function switchTokenLabel(tokenId, targetLabel) {
+    const token = currentTokens.find(t => t.id === tokenId);
+    if (!token) return;
+
+    if (targetLabel === '__custom__') {
+      const custom = prompt('Enter custom mask label (e.g. [CANDIDATE], [STORE]):', token.mask);
+      if (!custom || !custom.trim()) {
+        renderTracker();
+        return;
+      }
+      let cleaned = custom.trim();
+      if (!cleaned.startsWith('[')) cleaned = '[' + cleaned;
+      if (!cleaned.endsWith(']')) cleaned = cleaned + ']';
+      targetLabel = cleaned;
+    }
+
+    const def = LABEL_MAP[targetLabel] || { badge: 'badge-manual', category: 'Custom' };
+    manualOverrides.set(tokenId, true);
+    customLabelOverrides.set(tokenId, {
+      mask: targetLabel,
+      badgeClass: def.badge,
+      category: def.category
+    });
+
+    showToast(`Switched "${token.originalText}" to ${targetLabel}`);
+    doRedact(false);
+  }
+
+  // ---- EDIT MASK LABELS INLINE -------------------------------------------------
+  function startEditLabel(tokenId) {
+    editingTokenId = tokenId;
+    renderTracker();
+    const input = document.getElementById(`editInput_${tokenId}`);
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  }
+
+  function saveLabelEdit(tokenId) {
+    const input = document.getElementById(`editInput_${tokenId}`);
+    if (!input) return;
+    let newLabel = input.value.trim();
+    if (!newLabel) return;
+    if (!newLabel.startsWith('[')) newLabel = '[' + newLabel;
+    if (!newLabel.endsWith(']')) newLabel = newLabel + ']';
+
+    switchTokenLabel(tokenId, newLabel);
+    editingTokenId = null;
+  }
+
+  function cancelLabelEdit() {
+    editingTokenId = null;
+    renderTracker();
+  }
+
+  // ---- DELETE / UNMASK WORDS ---------------------------------------------------
+  function unmaskToken(tokenId) {
+    const token = currentTokens.find(t => t.id === tokenId);
+    if (!token) return;
+
+    manualOverrides.set(tokenId, false);
+    customLabelOverrides.delete(tokenId);
+    showToast(`Unmasked "${token.originalText}"`);
+    doRedact(false);
+  }
+
+  function unmaskAll() {
+    for (const t of currentTokens) {
+      if (t.masked) {
+        manualOverrides.set(t.id, false);
+      }
+    }
+    showToast('All conversions unmasked');
+    doRedact(false);
+  }
+
+  function resetOverrides() {
+    manualOverrides.clear();
+    customLabelOverrides.clear();
+    editingTokenId = null;
+    showToast('Reset to default detections');
+    doRedact(false);
+  }
+
+  // ---- STATS BAR ---------------------------------------------------------------
+  function renderStats(stats, risk) {
+    while (statsBar.firstChild) statsBar.removeChild(statsBar.firstChild);
+    if (!stats) return;
+
+    const defs = [
+      { key: 'name',    label: 'Names',     cls: 'chip-name'    },
+      { key: 'email',   label: 'Emails',    cls: 'chip-email'   },
+      { key: 'phone',   label: 'Phones',    cls: 'chip-phone'   },
+      { key: 'secret',  label: 'Secrets',   cls: 'chip-secret'  },
+      { key: 'id',      label: 'IDs',       cls: 'chip-id'      },
+      { key: 'address', label: 'Addresses', cls: 'chip-address' },
+      { key: 'digit',   label: 'Digits',    cls: 'chip-digit'   },
+      { key: 'custom',  label: 'Custom',    cls: 'chip-custom'  },
+    ];
+
+    for (const d of defs) {
+      const count = stats[d.key];
+      if (!count) continue;
+      const chip = document.createElement('span');
+      chip.className = 'stat-chip ' + d.cls;
+      chip.textContent = d.label + ': ' + count;
+      statsBar.appendChild(chip);
+    }
+
+    if (riskLabel) {
+      if (risk) {
+        riskLabel.textContent = risk;
+        riskLabel.className = 'risk-badge risk-' + risk.toLowerCase();
+      } else {
+        riskLabel.textContent = '';
+        riskLabel.className = 'risk-badge';
+      }
+    }
+  }
+
+  // ---- BACKEND CONNECTIVITY (Python Under The Hood) ---------------------------
+  function updateBackendBadge(isOnline, label) {
+    const chip = document.getElementById('backendChip');
+    const statusText = document.getElementById('backendStatus');
+    if (!chip || !statusText) return;
+    if (isOnline) {
+      chip.classList.remove('offline');
+      chip.classList.add('active');
+      statusText.textContent = label || 'Server: Active';
+    } else {
+      chip.classList.remove('active');
+      chip.classList.add('offline');
+      statusText.textContent = label || 'Server Down';
+    }
+  }
+
+  function getApiBase() {
+    if (window.location.origin && window.location.origin !== 'null' && window.location.protocol.startsWith('http')) {
+      return window.location.origin;
+    }
+    return 'http://127.0.0.1:8000';
+  }
+
+  async function checkBackendStatus() {
+    const bases = [getApiBase()];
+    if (!bases.includes('http://127.0.0.1:8000')) bases.push('http://127.0.0.1:8000');
+    if (!bases.includes('http://localhost:8000')) bases.push('http://localhost:8000');
+
+    for (const base of bases) {
+      try {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 3500);
+        const res = await fetch(base + '/api/status', { signal: controller.signal });
+        clearTimeout(tid);
+        if (res.ok) {
+          window.__activeApiBase = base;
+          updateBackendBadge(true, 'Server: Active');
+          return true;
+        }
+      } catch (e) {
+        // try next base
+      }
+    }
+    updateBackendBadge(false, 'Server Down');
+    return false;
+  }
+
+  // ---- PUBLIC ACTIONS ----------------------------------------------------------
+  async function doRedact(fromButton = false) {
+    clearTimeout(debounceTimer);
+
+    const text = inputEl ? (inputEl.value || '') : '';
+
+    if (fromButton) {
+      // User clicked "Redact" button or pressed Ctrl+Enter: fresh redaction
+      manualOverrides.clear();
+      customLabelOverrides.clear();
+      editingTokenId = null;
+
+      if (!text.trim()) {
+        showToast('Please enter text to redact');
+        if (inputEl) inputEl.focus();
+        return;
+      }
+    }
+
+    if (!text || !text.trim()) {
+      currentTokens = [];
+      lastStats = {};
+      renderOutput('');
+      renderTracker();
+      renderStats({}, '');
+      return;
+    }
+
+    // Call Python backend under the hood (zero regexes in HTML)
+    try {
+      const base = window.__activeApiBase || getApiBase();
+      const controller = new AbortController();
+      const tid = setTimeout(() => controller.abort(), 3000);
+
+      const payload = {
+        text: text,
+        manualOverrides: Object.fromEntries(manualOverrides),
+        labelOverrides: Object.fromEntries(customLabelOverrides)
+      };
+
+      const res = await fetch(base + '/api/redact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      clearTimeout(tid);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.tokens)) {
+          currentTokens = data.tokens;
+          lastStats = data.stats || {};
+          renderOutput(data.redactedText);
+          renderTracker();
+          renderStats(lastStats, data.risk);
+          updateBackendBadge(true, 'Server: Active');
+
+          if (fromButton) {
+            const maskedCount = currentTokens.filter(t => t.masked).length;
+            showToast(maskedCount > 0 ? `Redacted: ${maskedCount} PII entity${maskedCount === 1 ? '' : 'ies'} masked` : 'Redacted: No PII detected');
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      // Backend not reached
+    }
+
+    // Backend is offline - HTML does NOT perform regex work under any circumstances
+    updateBackendBadge(false, 'Server Down');
+    while (interactiveDisplay.firstChild) {
+      interactiveDisplay.removeChild(interactiveDisplay.firstChild);
+    }
+    const offlineNotice = document.createElement('div');
+    offlineNotice.style.cssText = 'color:#b91c1c; padding:1.5rem; text-align:center; font-size:0.9rem; line-height:1.5;';
+    offlineNotice.innerHTML = '<strong>Server Down.</strong><br><span style="font-size:0.8rem; color:#64748b;">Please start the server to redact text.</span>';
+    interactiveDisplay.appendChild(offlineNotice);
+
+    if (plainTextOutput) plainTextOutput.value = '';
+    renderTracker();
+    renderStats({}, '');
+
+    if (fromButton) {
+      showToast('Server Down');
+    }
+  }
+
+  function togglePlainView() {
+    isPlainView = !isPlainView;
+    if (isPlainView) {
+      interactiveDisplay.style.display = 'none';
+      plainTextOutput.style.display = 'block';
+      plainTextOutput.style.flex = '1';
+      viewToggleBtn.textContent = 'Interactive View';
+    } else {
+      interactiveDisplay.style.display = 'block';
+      plainTextOutput.style.display = 'none';
+      viewToggleBtn.textContent = 'Plain Text View';
+    }
+  }
+
+  function clearAll() {
+    manualOverrides.clear();
+    customLabelOverrides.clear();
+    editingTokenId = null;
+    if (inputEl) inputEl.value = '';
+    currentTokens = [];
+    lastStats = {};
+    if (interactiveDisplay) {
+      while (interactiveDisplay.firstChild) interactiveDisplay.removeChild(interactiveDisplay.firstChild);
+    }
+    if (plainTextOutput) plainTextOutput.value = '';
+    if (charCountEl) charCountEl.textContent = '0 characters';
+    renderStats({}, '');
+    renderTracker();
+    showToast('Cleared all text and conversions');
+  }
+
+  async function copyResult() {
+    const text = plainTextOutput ? plainTextOutput.value : '';
+    if (!text.trim()) { showToast('Nothing to copy'); return; }
+    copyTextToClipboard(text, 'Copied redacted text to clipboard');
+  }
+
+  function copyConversionLog() {
+    const tracked = currentTokens.filter(t => t.masked || (t.text !== t.originalText));
+    if (tracked.length === 0) {
+      showToast('No conversions to copy');
+      return;
+    }
+    const lines = tracked.map(t => {
+      const maskVal = t.masked ? t.mask : t.text;
+      return `${t.originalText} -> ${maskVal} [${t.category || 'PII'}] (chars ${t.start}-${t.end})`;
+    });
+    const log = "Presend PII Conversion Log (" + lines.length + " items):\n" + lines.join("\n");
+    copyTextToClipboard(log, 'Conversion audit log copied');
+  }
+
+  async function copyTextToClipboard(text, successMsg) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        showToast(successMsg);
+      } else {
+        fallbackCopy(text, successMsg);
+      }
+    } catch (err) {
+      fallbackCopy(text, successMsg);
+    }
+  }
+
+  function fallbackCopy(text, successMsg) {
+    const temp = document.createElement('textarea');
+    temp.value = text;
+    temp.setAttribute('readonly', '');
+    temp.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+    document.body.appendChild(temp);
+    temp.select();
+    try {
+      document.execCommand('copy');
+      showToast(successMsg);
+    } catch (e) {
+      showToast('Copy failed — please select and copy manually');
+    } finally {
+      document.body.removeChild(temp);
+    }
+  }
+
+  let toastTimer = null;
+  function showToast(msg) {
+    if (!toastEl) return;
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toastEl.classList.remove('show');
+    }, 2200);
+  }
+
+  // ---- EVENT LISTENERS ---------------------------------------------------------
+  const redactBtn = document.getElementById('redactBtn');
+  if (redactBtn) {
+    redactBtn.addEventListener('click', function () {
+      doRedact(true);
+    });
+  }
+
+  const clearBtn = document.getElementById('clearBtn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', clearAll);
+  }
+
+  const copyBtn = document.getElementById('copyBtn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', copyResult);
+  }
+
+  const copyLogBtn = document.getElementById('copyLogBtn');
+  if (copyLogBtn) {
+    copyLogBtn.addEventListener('click', copyConversionLog);
+  }
+
+  // Keyboard shortcut: Ctrl+Enter to redact immediately
+  if (inputEl) {
+    inputEl.addEventListener('keydown', function (e) {
+      if (e.ctrlKey && e.key === 'Enter') {
+        clearTimeout(debounceTimer);
+        doRedact(true);
+      }
+    });
+
+    inputEl.addEventListener('input', function () {
+      const len = inputEl.value.length;
+      if (charCountEl) {
+        charCountEl.textContent = len + (len === 1 ? ' character' : ' characters');
+      }
+
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function () {
+        doRedact(false);
+      }, 250);
+    });
+  }
+
+  // Initial backend check and initial redact
+  checkBackendStatus();
+
+  // Auto-retry checking status every 2.5s if server is down
+  setInterval(() => {
+    const chip = document.getElementById('backendChip');
+    if (chip && chip.classList.contains('offline')) {
+      checkBackendStatus();
+    }
+  }, 2500);
+
+  // Click on badge to immediately recheck
+  const chipEl = document.getElementById('backendChip');
+  if (chipEl) {
+    chipEl.style.cursor = 'pointer';
+    chipEl.addEventListener('click', () => {
+      updateBackendBadge(false, 'Server: Checking...');
+      checkBackendStatus();
+    });
+  }
+
+  if (inputEl && inputEl.value && inputEl.value.trim()) {
+    doRedact(false);
+  } else {
+    renderStats({}, '');
+    renderTracker();
+  }
+
+  </script>
+</body>
+</html>
