@@ -20,3 +20,4 @@ class handler(BaseHTTPRequestHandler):
         self.send_cors()
         self.end_headers()
         self.wfile.write(body)
+
